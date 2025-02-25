@@ -335,6 +335,7 @@ def checkLocationSatisfiability(x1_y1: Tuple[int, int], x0_y0: Tuple[int, int], 
     KB.append(
         pacphysicsAxioms(t=0, all_coords=all_coords, non_outer_wall_coords=non_outer_wall_coords, walls_grid=walls_grid,
                          sensorModel=None, successorAxioms=allLegalSuccessorAxioms))
+    # pachysicsAxioms describe the truth of world so two actions should conform to it.
     KB.append(
         pacphysicsAxioms(t=1, all_coords=all_coords, non_outer_wall_coords=non_outer_wall_coords, walls_grid=walls_grid,
                          sensorModel=None, successorAxioms=allLegalSuccessorAxioms))
@@ -378,7 +379,6 @@ def positionLogicPlan(problem) -> List:
             onePlace.append(PropSymbolExpr(pacman_str, x, y, time=t))
         KB.append(exactlyOne(onePlace))
         reachGoal = findModel(conjoin(KB + [PropSymbolExpr(pacman_str, xg, yg, time=t)]))
-        # reachGoal = findModel(PropSymbolExpr(pacman_str, xg, yg, time=t) & conjoin(KB))
         if reachGoal:
             return extractActionSequence(reachGoal, actions)
         oneAction = []
@@ -432,7 +432,8 @@ def foodLogicPlan(problem) -> List:
         KB.append(exactlyOne(oneAction))
         for (x, y) in non_wall_coords:
             KB.append(pacmanSuccessorAxiomSingle(x, y, t + 1, walls))
-        for (x, y) in food:
+        for (x, y) in food: # the relation between food at time t, t+1 and pacman position at time t
+            # without the relation, how do we express the food has been eaten?
             KB.append((PropSymbolExpr(pacman_str, x, y, time=t) & PropSymbolExpr(food_str, x, y, time=t))
                       >> ~PropSymbolExpr(food_str, x, y, time=t+1))
             KB.append((~PropSymbolExpr(pacman_str, x, y, time=t) & PropSymbolExpr(food_str, x, y, time=t))
@@ -454,17 +455,18 @@ def localization(problem, agent) -> Generator:
 
     KB = []
     "*** BEGIN YOUR CODE HERE ***"
-    KB.append(conjoin([PropSymbolExpr(wall_str, x, y) for x, y in walls_list]))
+    KB.append(conjoin([PropSymbolExpr(wall_str, x, y) for x, y in walls_list])) # add wall coordination
     non_wall_coords = [coord for coord in all_coords if coord not in walls_list]
-    KB.append(conjoin([~PropSymbolExpr(wall_str, x, y) for x, y in non_wall_coords]))
+    KB.append(conjoin([~PropSymbolExpr(wall_str, x, y) for x, y in non_wall_coords])) # add non wall coordination
     for t in range(agent.num_timesteps):
         KB.append(pacphysicsAxioms(t, all_coords, non_outer_wall_coords, walls_grid, sensorAxioms, allLegalSuccessorAxioms))
         KB.append(PropSymbolExpr(agent.actions[t], time=t))
         KB.append(fourBitPerceptRules(t, agent.getPercepts()))
-        possible_locations = []
+
+        possible_locations = [] # the possible location refers to the possible position at each step
         for (x, y) in non_outer_wall_coords:
             model = findModel(conjoin(KB) & PropSymbolExpr(pacman_str, x, y, time=t))
-            if model: # whether it satisfies all constraints
+            if model:
                 possible_locations.append((x, y))
             if entails(conjoin(KB), PropSymbolExpr(pacman_str, x, y, time=t)):
                 KB.append(PropSymbolExpr(pacman_str, x, y, time=t))
