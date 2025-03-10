@@ -12,6 +12,10 @@
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 from typing import List
+
+from sqlalchemy import false
+from sympy.stats.rv import probability
+
 from bayesNet import Factor
 import functools
 from util import raiseNotDefined
@@ -100,10 +104,25 @@ def joinFactors(factors: List[Factor]):
                     "Input factors: \n" +
                     "\n".join(map(str, factors)))
 
-
     "*** YOUR CODE HERE ***"
-    raiseNotDefined()
-    "*** END YOUR CODE HERE ***"
+    factorsList = list(factors)
+    variableDomainsDict = factorsList[0].variableDomainsDict()
+    unconditionedVariables = set()
+    conditionedVariables = set()
+
+    for factor in factorsList:
+        unconditionedVariables.update(factor.unconditionedVariables())
+        conditionedVariables.update(factor.conditionedVariables())
+    conditionedVariables = conditionedVariables - unconditionedVariables
+    resultFactor = Factor(unconditionedVariables, conditionedVariables, variableDomainsDict)
+
+    for assignment in resultFactor.getAllPossibleAssignmentDicts():
+        probability = 1
+        for factor in factors:
+            probability *= factor.getProbability(assignment)
+        resultFactor.setProbability(assignment, probability)
+
+    return resultFactor
 
 ########### ########### ###########
 ########### QUESTION 3  ###########
@@ -153,8 +172,26 @@ def eliminateWithCallTracking(callTrackingList=None):
                     "unconditionedVariables: " + str(factor.unconditionedVariables()))
 
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
+        unconditionedVariable = factor.unconditionedVariables()
+        unconditionedVariable.discard(eliminationVariable)
+        conditionedVariable = factor.conditionedVariables()
+        conditionedVariable = conditionedVariable - unconditionedVariable
+        variableDomainsDict = factor.variableDomainsDict()
+        resultFactor = Factor(unconditionedVariable, conditionedVariable, variableDomainsDict)
+
+        for resultAssignment in resultFactor.getAllPossibleAssignmentDicts():
+            probability = 0
+            for totalAssignment in factor.getAllPossibleAssignmentDicts():
+                isMatch = True
+                for key, value in resultAssignment.items():
+                    if key not in totalAssignment.keys() or value != totalAssignment[key]:
+                        isMatch = False
+                        break
+                if isMatch:
+                    probability += factor.getProbability(totalAssignment)
+
+            resultFactor.setProbability(resultAssignment, probability)
+        return resultFactor
 
     return eliminate
 

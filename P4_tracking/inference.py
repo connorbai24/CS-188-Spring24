@@ -61,7 +61,19 @@ def constructBayesNet(gameState: hunters.GameState):
     variableDomainsDict = {}
 
     "*** YOUR CODE HERE ***"
-    raiseNotDefined()
+    variables.extend([PAC, GHOST0, GHOST1,OBS0, OBS1])
+    edges.extend([(GHOST0, OBS0), (GHOST1, OBS1), (PAC, OBS0), (PAC, OBS1)])
+    positions = []
+    for i in range(X_RANGE):
+        for j in range(Y_RANGE):
+            positions.append((i, j))
+    variableDomainsDict[PAC] = positions
+    variableDomainsDict[GHOST0] = positions
+    variableDomainsDict[GHOST1] = positions
+    maxManhatt = (X_RANGE - 1) + (Y_RANGE - 1) + MAX_NOISE
+    manhattList = list(range(maxManhatt + 1))
+    variableDomainsDict[OBS0] = manhattList
+    variableDomainsDict[OBS1] = manhattList
     "*** END YOUR CODE HERE ***"
 
     net = bn.constructEmptyBayesNet(variables, edges, variableDomainsDict)
@@ -182,9 +194,14 @@ def inferenceByVariableEliminationWithCallTracking(callTrackingList=None):
             eliminationOrder = sorted(list(eliminationVariables))
 
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
+        currentFactorsList = bayesNet.getAllCPTsWithEvidence(evidenceDict)
+        for eliminationVariable in eliminationOrder:
+            currentFactorsList, eliminatedFactor = joinFactorsByVariable(currentFactorsList, eliminationVariable)
+            if len(eliminatedFactor.unconditionedVariables()) > 1:
+                currentFactorsList.append(eliminate(eliminatedFactor, eliminationVariable))
 
+        fullJoint = joinFactors(currentFactorsList)
+        return normalize(fullJoint)
 
     return inferenceByVariableElimination
 
@@ -323,8 +340,11 @@ class DiscreteDistribution(dict):
         {}
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
+        total = self.total()
+        if total != 0:
+            for key, value in self.items():
+                self[key] = value / total
+
 
     def sample(self):
         """
@@ -348,8 +368,14 @@ class DiscreteDistribution(dict):
         0.0
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
+        total = self.total()
+        random_number = random.uniform(0, 1)
+        accumulation = 0
+        for key in self.keys():
+            accumulation += self[key] / total
+            if random_number < accumulation:
+                return key
+
 
 
 class InferenceModule:
@@ -423,8 +449,14 @@ class InferenceModule:
         Return the probability P(noisyDistance | pacmanPosition, ghostPosition).
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
+        if ghostPosition == jailPosition and noisyDistance is None:
+            return 1
+        if ghostPosition != jailPosition and noisyDistance is not None:
+            # noisy is not None and pac != jail
+            trueDistance = manhattanDistance(pacmanPosition, ghostPosition)
+            return busters.getObservationProbability(noisyDistance, trueDistance)
+        return 0
+
 
     def setGhostPosition(self, gameState, ghostPosition, index):
         """
@@ -536,7 +568,23 @@ class ExactInference(InferenceModule):
         position is known.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        # The observeUpdate method should, for this problem, update the belief at every position on the map after
+        # receiving a sensor reading. You should iterate your updates over the variable self.allPositions which includes
+        # all legal positions plus the special jail position.
+
+        # Beliefs represent the probability that the ghost is at a particular location -- self.beliefs
+        # self.getObservationProb
+        # You can obtain Pacman’s position using gameState.getPacmanPosition(), and the jail position using self.getJailPosition()
+
+        pacmanPosition = gameState.getPacmanPosition()
+        currentBeliefs = self.getBeliefDistribution()
+        jailPosition = self.getJailPosition()
+        allGhostPosition = self.allPositions
+
+        # update beliefs so that we add current beliefs
+        for ghostPosition in allGhostPosition:
+            self.beliefs[ghostPosition] = (
+                    self.getObservationProb(observation, pacmanPosition, ghostPosition, jailPosition) * currentBeliefs[ghostPosition])
         "*** END YOUR CODE HERE ***"
         self.beliefs.normalize()
     
@@ -554,7 +602,20 @@ class ExactInference(InferenceModule):
         current position is known.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        # The elapseTime step should, for this problem, update the belief at every position on the map after one time
+        # step elapsing. Your agent has access to the action distribution for the ghost through self.getPositionDistribution
+        # newPosDist = self.getPositionDistribution(gameState, oldPos)
+        currentBeliefs = self.getBeliefDistribution()
+        allGhostPosition = self.allPositions
+        updatedBeliefs = DiscreteDistribution()
+
+        for ghostPosition in allGhostPosition:
+            newPosDist = self.getPositionDistribution(gameState, ghostPosition)
+            for newPos, proba in newPosDist.items():
+                updatedBeliefs[newPos] += proba * currentBeliefs[ghostPosition]
+
+        self.beliefs = updatedBeliefs
+        self.beliefs.normalize()
         "*** END YOUR CODE HERE ***"
 
     def getBeliefDistribution(self):
