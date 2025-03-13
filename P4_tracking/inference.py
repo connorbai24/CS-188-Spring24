@@ -581,7 +581,7 @@ class ExactInference(InferenceModule):
         jailPosition = self.getJailPosition()
         allGhostPosition = self.allPositions
 
-        # update beliefs so that we add current beliefs
+        # update beliefs so we add current beliefs
         for ghostPosition in allGhostPosition:
             self.beliefs[ghostPosition] = (
                     self.getObservationProb(observation, pacmanPosition, ghostPosition, jailPosition) * currentBeliefs[ghostPosition])
@@ -602,9 +602,6 @@ class ExactInference(InferenceModule):
         current position is known.
         """
         "*** YOUR CODE HERE ***"
-        # The elapseTime step should, for this problem, update the belief at every position on the map after one time
-        # step elapsing. Your agent has access to the action distribution for the ghost through self.getPositionDistribution
-        # newPosDist = self.getPositionDistribution(gameState, oldPos)
         currentBeliefs = self.getBeliefDistribution()
         allGhostPosition = self.allPositions
         updatedBeliefs = DiscreteDistribution()
@@ -647,7 +644,16 @@ class ParticleFilter(InferenceModule):
         """
         self.particles = []
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        # self.legalPositions could be located
+        # self.numParticles for the number of ghost position
+        even = self.numParticles // len(self.legalPositions)
+        uneven = self.numParticles % len(self.legalPositions)
+        for position in self.legalPositions:
+            num = even
+            if uneven > 0:
+                uneven -= 1
+                num += 1
+            self.particles += [position] * num
         "*** END YOUR CODE HERE ***"
 
     def getBeliefDistribution(self):
@@ -659,8 +665,11 @@ class ParticleFilter(InferenceModule):
         This function should return a normalized distribution.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
+        self.belief = DiscreteDistribution()
+        for particlePosition in self.particles:
+            self.belief[particlePosition] += 1
+        self.belief.normalize()
+        return self.belief
     
     ########### ########### ###########
     ########### QUESTION 10 ###########
@@ -679,7 +688,22 @@ class ParticleFilter(InferenceModule):
         the DiscreteDistribution may be useful.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        pacmanPosition = gameState.getPacmanPosition()
+        currentBeliefs = self.getBeliefDistribution()
+        jailPosition = self.getJailPosition()
+        ghostPositions = self.particles
+        updatedBeliefs = DiscreteDistribution()
+
+        # update beliefs so we add current beliefs
+        for ghostPosition in ghostPositions:
+            updatedBeliefs[ghostPosition] = (
+                    self.getObservationProb(observation, pacmanPosition, ghostPosition, jailPosition) * currentBeliefs[ghostPosition])
+        if updatedBeliefs.total() == 0:
+            self.initializeUniformly(gameState)
+        else:
+            updatedBeliefs.normalize()
+            self.particles = [updatedBeliefs.sample() for _ in range(self.numParticles)]
+
         "*** END YOUR CODE HERE ***"
     
     ########### ########### ###########
@@ -692,6 +716,8 @@ class ParticleFilter(InferenceModule):
         gameState.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
-
+        newParticles = []
+        for part in self.particles:
+            newPosDist = self.getPositionDistribution(gameState, part)
+            newParticles.append(newPosDist.sample())
+        self.particles = newParticles
