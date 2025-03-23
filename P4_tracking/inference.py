@@ -452,7 +452,6 @@ class InferenceModule:
         if ghostPosition == jailPosition and noisyDistance is None:
             return 1
         if ghostPosition != jailPosition and noisyDistance is not None:
-            # noisy is not None and pac != jail
             trueDistance = manhattanDistance(pacmanPosition, ghostPosition)
             return busters.getObservationProbability(noisyDistance, trueDistance)
         return 0
@@ -605,11 +604,12 @@ class ExactInference(InferenceModule):
         currentBeliefs = self.getBeliefDistribution()
         allGhostPosition = self.allPositions
         updatedBeliefs = DiscreteDistribution()
+        # it needs a new beliefs distribution since updated beliefs affect old beliefs
 
-        for ghostPosition in allGhostPosition:
-            newPosDist = self.getPositionDistribution(gameState, ghostPosition)
+        for oldGhostPosition in allGhostPosition:
+            newPosDist = self.getPositionDistribution(gameState, oldGhostPosition)
             for newPos, proba in newPosDist.items():
-                updatedBeliefs[newPos] += proba * currentBeliefs[ghostPosition]
+                updatedBeliefs[newPos] += proba * currentBeliefs[oldGhostPosition]
 
         self.beliefs = updatedBeliefs
         self.beliefs.normalize()
@@ -694,7 +694,6 @@ class ParticleFilter(InferenceModule):
         ghostPositions = self.particles
         updatedBeliefs = DiscreteDistribution()
 
-        # update beliefs so we add current beliefs
         for ghostPosition in ghostPositions:
             updatedBeliefs[ghostPosition] = (
                     self.getObservationProb(observation, pacmanPosition, ghostPosition, jailPosition) * currentBeliefs[ghostPosition])

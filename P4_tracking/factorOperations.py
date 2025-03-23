@@ -105,7 +105,9 @@ def joinFactors(factors: List[Factor]):
                     "\n".join(map(str, factors)))
 
     "*** YOUR CODE HERE ***"
+    print("factors: ", factors)
     factorsList = list(factors)
+    print("factorlist: ", factorsList)
     variableDomainsDict = factorsList[0].variableDomainsDict()
     unconditionedVariables = set()
     conditionedVariables = set()
